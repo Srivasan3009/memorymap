@@ -147,6 +147,7 @@ vars above.
 ## ⚖️ Notes
 
 - Progress is stored in `localStorage` (per-browser). No account needed.
-- PDF uploads extract readable text as a topic hint; for full PDF parsing, pair
-  the Express server with a PDF library (`pdf-parse`, `mupdf`) and extend the
-  `/api/ai/knowledge-map` input handling.
+- PDF uploads are parsed entirely in your browser with PDF.js — no server
+  required. Full text is extracted page-by-page (up to 80 pages) and used to
+  build the map. Scanned/image-only PDFs show a clear error and suggest pasting
+  text instead. Files up to 50 MB are accepted.

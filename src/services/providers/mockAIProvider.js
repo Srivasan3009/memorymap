@@ -22,31 +22,31 @@ function looksLikeDemo(topic) {
 
 // ── Generic topic scaffolding ──────────────────────────────────────────────
 
-function genericConceptsFor(topic) {
+function genericConceptsFor(topic, titleHint = null) {
   const clean = (topic || 'Introduction to a New Topic').trim();
-  const title = clean.length > 60 ? clean.slice(0, 60) + '…' : clean;
+  const label = titleHint || (clean.length > 60 ? clean.slice(0, 60) + '…' : clean);
 
   const root = new Concept({
-    id: 'root', name: title, category: C.ROOT, subject: topic,
-    explanation: `${clean} is the central topic of this study map. Explore its connected concepts below to build a full understanding.`,
+    id: 'root', name: label, category: C.ROOT, subject: topic,
+    explanation: `${label} is the central topic of this study map. Explore its connected concepts below to build a full understanding.`,
     keyPoints: ['This is the root of your knowledge map.', 'Each branch below covers one core idea.']
   });
 
   const definitions = new Concept({
     id: 'definitions', name: 'Key Definitions', category: C.MAJOR, subject: topic,
-    explanation: `The essential terms and definitions that underpin ${clean}. Learn these first — every other concept builds on them.`,
+    explanation: `The essential terms and definitions that underpin ${label}. Learn these first — every other concept builds on them.`,
     keyPoints: ['Start here for vocabulary.', 'Definitions anchor the rest of the map.']
   });
 
   const principles = new Concept({
     id: 'principles', name: 'Core Principles', category: C.MAJOR, subject: topic,
-    explanation: `The fundamental rules and principles of ${clean}. Understanding these lets you reason about new situations.`,
+    explanation: `The fundamental rules and principles of ${label}. Understanding these lets you reason about new situations.`,
     keyPoints: ['Principles explain why things work.', 'Apply them to solve problems.']
   });
 
   const applications = new Concept({
     id: 'applications', name: 'Applications', category: C.MAJOR, subject: topic,
-    explanation: `Real-world uses of ${clean}. Connecting theory to practice makes learning stick.`,
+    explanation: `Real-world uses of ${label}. Connecting theory to practice makes learning stick.`,
     keyPoints: ['Where is this used in real life?', 'Applications reinforce memory.']
   });
 
@@ -74,16 +74,25 @@ export class MockAIProvider {
   async generateKnowledgeMap(input) {
     await delay(1600);
 
-    const topic = (input.topic || input.text || '').trim();
-    if (looksLikeDemo(topic)) {
+    const raw = (input.topic || input.text || '').trim();
+    const titleHint = (input.title || '').trim();
+
+    if (looksLikeDemo(raw)) {
       return buildDemoMap();
     }
+
+    // For long documents (books, big pastes) we can't treat the whole text as
+    // a topic — sample a representative chunk and use the filename/heading as
+    // the map title.
+    const isLongText = raw.length > 400;
+    const topic = isLongText ? sampleChunk(raw, 240) : raw;
+
     if (topic) {
-      const concepts = genericConceptsFor(topic);
+      const concepts = genericConceptsFor(topic, titleHint || null);
       const relationships = genericRelationships(concepts);
       return new KnowledgeMap({
         id: `map-${Date.now()}`,
-        title: topic.length > 40 ? topic.slice(0, 40) + '…' : topic,
+        title: titleHint || (topic.length > 40 ? topic.slice(0, 40) + '…' : topic),
         subject: 'Custom',
         source: 'ai',
         concepts,
@@ -239,6 +248,13 @@ export class MockAIProvider {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Grab a representative chunk from a long document — the first few sentences
+// are usually the thesis/overview of the material.
+function sampleChunk(text, maxLen) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  return clean.slice(0, maxLen) + (clean.length > maxLen ? '…' : '');
 }
 
 function shuffle(arr) {

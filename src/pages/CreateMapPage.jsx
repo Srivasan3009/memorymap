@@ -8,28 +8,13 @@ import {
 import { Navbar } from '../components/Navbar';
 import { ai } from '../services/aiService';
 import { useApp } from '../context/AppContext';
+import { validateFile, MAX_FILE_MB } from '../services/pdfMeta';
 
 const TABS = [
   { id: 'pdf', label: 'Upload PDF', icon: FileText },
   { id: 'paste', label: 'Paste Notes', icon: Type },
   { id: 'topic', label: 'Enter Topic', icon: Sparkles }
 ];
-
-// Lightweight text extraction for the supported document types we accept.
-const MAX_FILE_MB = 15;
-
-function extractTextFromPdf(arrayBuffer) {
-  // This is a lightweight fallback. For real PDFs a proper PDF parser would be
-  // used server-side; here we surface a clear message for unsupported content
-  // while still accepting the file as a "topic hint".
-  const bytes = new Uint8Array(arrayBuffer);
-  const chunk = new TextDecoder('utf-8').decode(bytes.slice(0, 4096));
-  const clean = chunk
-    .replace(/[^\x20-\x7E]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return clean.slice(0, 500);
-}
 
 export default function CreateMapPage() {
   const navigate = useNavigate();
@@ -42,6 +27,8 @@ export default function CreateMapPage() {
   const [dragOver, setDragOver] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [phase, setPhase] = useState(0);
+  const [extracting, setExtracting] = useState(false);
+  const [extractProgress, setExtractProgress] = useState(null);
   const fileInputRef = useRef(null);
 
   const phases = [
@@ -52,13 +39,9 @@ export default function CreateMapPage() {
 
   const handleFile = (f) => {
     if (!f) return;
-    const valid = /\.(pdf|txt|md)$/i.test(f.name);
-    if (!valid) {
-      toast('Unsupported file. Please upload a PDF, TXT, or MD file.', 'error');
-      return;
-    }
-    if (f.size > MAX_FILE_MB * 1024 * 1024) {
-      toast(`File too large (max ${MAX_FILE_MB} MB).`, 'error');
+    const check = validateFile(f);
+    if (!check.ok) {
+      toast(check.message, 'error');
       return;
     }
     setFile(f);
@@ -77,15 +60,28 @@ export default function CreateMapPage() {
       if (!content) { toast('Please paste some notes to continue.', 'error'); return; }
     } else if (tab === 'pdf') {
       if (!file) { toast('Please choose a file to continue.', 'error'); return; }
+      setExtracting(true);
+      setExtractProgress({ page: 0, total: 0 });
       try {
-        const buf = await file.arrayBuffer();
-        content = extractTextFromPdf(buf) || fileName.replace(/\.(pdf|txt|md)$/i, '');
-        if (content.length > 0 && content.length < 40) {
-          content = fileName.replace(/\.(pdf|txt|md)$/i, '');
+        const { extractTextFromPdf, PdfTextError } = await import('../services/pdfExtract');
+        content = await extractTextFromPdf(file, {
+          onProgress: (p) => setExtractProgress(p)
+        });
+        if (content.replace(/\s+/g, '').length < 200) {
+          toast('That PDF has very little readable text. Try a different file or paste the text.', 'error');
+          setExtracting(false);
+          setExtractProgress(null);
+          return;
         }
-      } catch {
-        toast('Could not read that file. Please try a different one.', 'error');
+      } catch (err) {
+        const msg = err instanceof PdfTextError ? err.message : 'Could not read that PDF. It may be corrupt or password-protected.';
+        toast(msg, 'error');
+        setExtracting(false);
+        setExtractProgress(null);
         return;
+      } finally {
+        setExtracting(false);
+        setExtractProgress(null);
       }
     }
 
@@ -96,7 +92,8 @@ export default function CreateMapPage() {
     }, 900);
 
     try {
-      const map = await ai.generateKnowledgeMap({ text: content, topic: content });
+      const titleHint = tab === 'pdf' ? fileName.replace(/\.pdf$/i, '') : '';
+      const map = await ai.generateKnowledgeMap({ text: content, topic: content, title: titleHint });
       const saved = addMap(map);
       recordActivity('create', `Created map: ${map.title}`);
       toast(`Knowledge map for "${map.title}" is ready!`, 'success');
@@ -197,30 +194,42 @@ export default function CreateMapPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt,.md"
+                  accept=".pdf"
                   style={{ display: 'none' }}
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
                 <div
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { if (!extracting) fileInputRef.current?.click(); }}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => {
                     e.preventDefault();
                     setDragOver(false);
-                    handleFile(e.dataTransfer.files?.[0]);
+                    if (!extracting) handleFile(e.dataTransfer.files?.[0]);
                   }}
                   style={{
                     border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border-strong)'}`,
                     borderRadius: 14,
                     padding: '44px 24px',
                     textAlign: 'center',
-                    cursor: 'pointer',
+                    cursor: extracting ? 'wait' : 'pointer',
                     transition: 'border-color 0.2s',
                     background: dragOver ? 'rgba(99,102,241,0.06)' : 'transparent'
                   }}
                 >
-                  {file ? (
+                  {extracting ? (
+                    <>
+                      <Loader2 size={28} color="var(--primary-soft)" style={{ animation: 'spin 1s linear infinite' }} />
+                      <p style={{ margin: '10px 0 4px', fontWeight: 600 }}>
+                        Reading your PDF…
+                      </p>
+                      <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
+                        {extractProgress?.total
+                          ? `Extracting text — page ${extractProgress.page} of ${extractProgress.total}`
+                          : 'Parsing document…'}
+                      </p>
+                    </>
+                  ) : file ? (
                     <>
                       <Check size={28} color="var(--success)" />
                       <p style={{ margin: '10px 0 4px', fontWeight: 600 }}>{fileName}</p>
@@ -233,7 +242,7 @@ export default function CreateMapPage() {
                       <Upload size={28} color="var(--primary-soft)" />
                       <p style={{ margin: '10px 0 4px', fontWeight: 600 }}>Drop your PDF here</p>
                       <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>
-                        or click to browse · PDF, TXT, MD · up to {MAX_FILE_MB} MB
+                        or click to browse · PDF · up to {MAX_FILE_MB} MB
                       </p>
                     </>
                   )}
