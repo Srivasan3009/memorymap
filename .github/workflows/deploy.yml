@@ -32,6 +32,7 @@ jobs:
 
       - name: Build
         env:
+          GH_PAGES: "true"
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
           VITE_OPENROUTER_MODEL: ${{ secrets.VITE_OPENROUTER_MODEL }}

@@ -15,7 +15,8 @@ export default defineConfig({
       }
     }
   ],
-  base: './',
+  // Absolute base on GitHub Pages (subpath deployment); relative for dev/preview.
+  base: process.env.GH_PAGES ? '/knowledge-map/' : './',
   build: {
     outDir: 'dist',
     emptyOutDir: true
