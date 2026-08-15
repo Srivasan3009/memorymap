@@ -33,6 +33,8 @@ jobs:
       - name: Build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
+          VITE_OPENROUTER_MODEL: ${{ secrets.VITE_OPENROUTER_MODEL }}
         run: npm run build
 
       - name: Upload artifact

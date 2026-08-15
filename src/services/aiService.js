@@ -1,4 +1,5 @@
 import { MockAIProvider } from './providers/mockAIProvider';
+import { OpenRouterClientProvider } from './providers/openrouterClientProvider';
 import { KnowledgeMap } from '../utils/types';
 
 // Unified AI service abstraction.
@@ -14,18 +15,19 @@ import { KnowledgeMap } from '../utils/types';
 //    ├── evaluateAnswer()
 //    └── generateStudyPlan()
 //
-// If no API key / endpoint is configured, the mock provider powers the whole
-// app so the demo works with zero setup.
+// Provider selection (highest priority first):
+//   1. VITE_OPENROUTER_API_KEY  → OpenRouter, called directly from the browser
+//      (works on static hosts like GitHub Pages, no backend needed)
+//   2. VITE_API_URL             → local/cloud Express proxy (server/)
+//   3. Otherwise                → mock provider (demo mode, zero setup)
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
+const OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
 class AIProxyProvider {
   async generateKnowledgeMap(input) {
     const data = await this.post('/api/ai/knowledge-map', { input });
-    // The backend returns a bare concept/relationship payload; wrap it in the
-    // same KnowledgeMap shape the mock provider produces so the client treats
-    // every source identically.
     return new KnowledgeMap({
       id: `map-${Date.now()}`,
       title: data.title || input.title || 'Untitled map',
@@ -67,13 +69,19 @@ class AIProxyProvider {
 }
 
 function getProvider() {
-  // Real AI is only used when an API URL is configured.
+  // 1. OpenRouter direct (static-host friendly) — highest priority.
+  if (OPENROUTER_KEY) {
+    return new OpenRouterClientProvider();
+  }
+  // 2. Express proxy (local dev or cloud backend).
   if (API_URL) {
     return new AIProxyProvider();
   }
+  // 3. Mock/demo mode.
   return new MockAIProvider();
 }
 
 export const ai = getProvider();
 
-export { API_URL as AI_CONFIGURED }; // truthy when a real provider is configured
+export { API_URL as AI_CONFIGURED }; // truthy when a proxy backend is configured
+export { OPENROUTER_KEY as OPENROUTER_CONFIGURED }; // truthy when OpenRouter is wired
