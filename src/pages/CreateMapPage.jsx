@@ -63,7 +63,7 @@ export default function CreateMapPage() {
       setExtracting(true);
       setExtractProgress({ page: 0, total: 0 });
       try {
-        const { extractTextFromPdf, PdfTextError } = await import('../services/pdfExtract');
+        const { extractTextFromPdf } = await import('../services/pdfExtract');
         content = await extractTextFromPdf(file, {
           onProgress: (p) => setExtractProgress(p)
         });
@@ -74,7 +74,7 @@ export default function CreateMapPage() {
           return;
         }
       } catch (err) {
-        const msg = err instanceof PdfTextError ? err.message : 'Could not read that PDF. It may be corrupt or password-protected.';
+        const msg = err?.name === 'PdfTextError' ? err.message : 'Could not read that PDF. It may be corrupt or password-protected.';
         toast(msg, 'error');
         setExtracting(false);
         setExtractProgress(null);
