@@ -17,6 +17,7 @@ async function runWithRealAI(path, payload) {
   if (provider === 'gemini') return generateWithGemini(path, payload);
   if (provider === 'groq') return generateWithGroq(path, payload);
   if (provider === 'openai') return generateWithOpenAI(path, payload);
+  if (provider === 'openrouter') return generateWithOpenRouter(path, payload);
   throw new Error(`Unknown AI_PROVIDER: ${provider}`);
 }
 
@@ -71,11 +72,35 @@ ${schemaFor(path)}`;
 async function generateWithOpenAI(path, payload) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  return openAiCompatible(path, payload, {
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey,
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    name: 'OpenAI'
+  });
+}
+
+async function generateWithOpenRouter(path, payload) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set');
+  return openAiCompatible(path, payload, {
+    baseUrl: 'https://openrouter.ai/api/v1',
+    apiKey,
+    model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini',
+    name: 'OpenRouter',
+    extraHeaders: {
+      'HTTP-Referer': 'https://srivasan3009.github.io/knowledge-map/',
+      'X-Title': 'MemoryMap'
+    }
+  });
+}
+
+async function openAiCompatible(path, payload, { baseUrl, apiKey, model, name, extraHeaders = {} }) {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...extraHeaders },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model,
       messages: [
         { role: 'system', content: systemPrompt(path) },
         { role: 'user', content: JSON.stringify(payload) }
@@ -83,7 +108,7 @@ async function generateWithOpenAI(path, payload) {
       response_format: { type: 'json_object' }
     })
   });
-  if (!res.ok) throw new Error(`OpenAI error: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`${name} error: ${res.status} ${await res.text()}`);
   const data = await res.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Empty AI response');
@@ -93,23 +118,12 @@ async function generateWithOpenAI(path, payload) {
 async function generateWithGroq(path, payload) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY is not set');
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt(path) },
-        { role: 'user', content: JSON.stringify(payload) }
-      ],
-      response_format: { type: 'json_object' }
-    })
+  return openAiCompatible(path, payload, {
+    baseUrl: 'https://api.groq.com/openai/v1',
+    apiKey,
+    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    name: 'Groq'
   });
-  if (!res.ok) throw new Error(`Groq error: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty AI response');
-  return parseJson(content);
 }
 
 async function generateWithGemini(path, payload) {

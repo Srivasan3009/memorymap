@@ -9,8 +9,8 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: AI_PROVIDER
-        value: groq
-      - key: GROQ_MODEL
-        value: llama-3.3-70b-versatile
-      - key: GROQ_API_KEY
+        value: openrouter
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
+      - key: OPENROUTER_API_KEY
         sync: false
