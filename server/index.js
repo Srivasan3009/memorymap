@@ -1,7 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { generateKnowledgeMap, explainConcept, generateQuiz, evaluateAnswer, generateStudyPlan, askQuestion } from './ai.js';
+
+// Load server/.env (dotenv/config defaults to CWD, but the server lives in /server)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3001;

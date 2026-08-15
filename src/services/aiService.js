@@ -1,4 +1,5 @@
 import { MockAIProvider } from './providers/mockAIProvider';
+import { KnowledgeMap } from '../utils/types';
 
 // Unified AI service abstraction.
 //
@@ -21,7 +22,20 @@ const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 class AIProxyProvider {
   async generateKnowledgeMap(input) {
-    return this.post('/api/ai/knowledge-map', { input });
+    const data = await this.post('/api/ai/knowledge-map', { input });
+    // The backend returns a bare concept/relationship payload; wrap it in the
+    // same KnowledgeMap shape the mock provider produces so the client treats
+    // every source identically.
+    return new KnowledgeMap({
+      id: `map-${Date.now()}`,
+      title: data.title || input.title || 'Untitled map',
+      subject: data.subject || 'Custom',
+      source: 'ai',
+      concepts: data.concepts || [],
+      relationships: data.relationships || [],
+      createdAt: Date.now(),
+      mastery: {}
+    });
   }
   async explainConcept({ map, conceptId, studentLevel }) {
     return this.post('/api/ai/explain', { map, conceptId, studentLevel });

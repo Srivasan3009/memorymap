@@ -1,4 +1,5 @@
 import { MockAIProvider } from '../src/services/providers/mockAIProvider.js';
+import { schemaFor } from './schema.js';
 
 const mock = new MockAIProvider();
 
@@ -62,7 +63,9 @@ export async function askQuestion(body) {
 }
 
 function systemPrompt(path) {
-  return `You are MemoryMap, an AI that builds knowledge maps and learning content. Respond in strict JSON with no markdown, no prose, no code fences — only a valid JSON object. Request: ${path}`;
+  return `You are MemoryMap, an AI that builds knowledge maps and learning content. Respond in strict JSON with no markdown, no prose, no code fences — only a valid JSON object.
+
+${schemaFor(path)}`;
 }
 
 async function generateWithOpenAI(path, payload) {
