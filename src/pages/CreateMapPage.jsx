@@ -64,6 +64,7 @@ export default function CreateMapPage() {
       setExtractProgress({ page: 0, total: 0 });
       try {
         const { extractTextFromPdf } = await import('../services/pdfExtract');
+        const { buildBookDigest } = await import('../utils/bookDigest');
         content = await extractTextFromPdf(file, {
           onProgress: (p) => setExtractProgress(p)
         });
@@ -73,6 +74,9 @@ export default function CreateMapPage() {
           setExtractProgress(null);
           return;
         }
+        // For full books, condense to a representative digest so the AI sees
+        // the entire book — otherwise it only reads the first chapters.
+        content = buildBookDigest(content);
       } catch (err) {
         const msg = err?.name === 'PdfTextError' ? err.message : 'Could not read that PDF. It may be corrupt or password-protected.';
         toast(msg, 'error');

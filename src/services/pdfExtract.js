@@ -26,7 +26,7 @@ function awaitSafeImportWorker() {
 // Reads text from every page of the document — works for real books and
 // lecture notes, no server needed.
 
-const MAX_PAGES = 80; // avoid freezing the tab on massive scanned textbooks
+const MAX_PAGES = 400; // covers full textbooks; most school books are under this
 
 export async function extractTextFromPdf(file, { onProgress } = {}) {
   await ensureWorker();

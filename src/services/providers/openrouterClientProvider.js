@@ -17,7 +17,8 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 function schemaFor(path) {
   const schemas = {
-    '/knowledge-map': `Return a JSON object with EXACTLY these fields:
+    '/knowledge-map': `The user input is either a short topic/paste OR the full text of a textbook/study material.
+Return a JSON object with EXACTLY these fields:
 {
   "title": "string — short map title (use the filename/topic hint when given)",
   "subject": "string — broad subject area",
@@ -40,9 +41,10 @@ function schemaFor(path) {
   ]
 }
 RULES:
-- Extract REAL concepts from the user's material — do NOT invent generic scaffolding.
-- Use category "root" for the single central topic, "major" for core ideas (3-6), "minor" for supporting details, "detail" for specifics.
-- Aim for 8-20 concepts and relationships that connect them logically.
+- If the input is a full textbook, create concepts that reflect the BOOK'S OWN chapters and sections. Cover the ENTIRE book, from the table of contents through the final chapters — not just the opening pages.
+- Extract REAL concepts from the material — do NOT invent generic scaffolding.
+- Use category "root" for the single central topic, "major" for chapters/core ideas, "minor" for sections/key topics, "detail" for specifics.
+- For a full book aim for 15-40 concepts so all major chapters are represented; for a short topic aim for 8-20.
 - Every relationship source and target must reference an existing concept id.
 - Output ONLY the JSON object — no markdown, no commentary.`,
     '/explain': `Return a JSON object with EXACTLY these fields:
